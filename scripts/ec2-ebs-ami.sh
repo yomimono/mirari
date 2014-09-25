@@ -14,6 +14,8 @@ fail() {
 
 if [ ! -e "$1" ]; then
   echo Usage: $0 kernel.xen
+  echo This script will create an EBS-backed AMI and launch an instance for the Xen kernel you pass as the first argument.
+  echo This script is meant to be run on an EC2 instance, and will fail if run elsewhere.
   echo Remember to set each of EC2_ACCESS, EC2_ACCESS_SECRET, EC2_CERT, EC2_USER
   exit 1
 fi
@@ -26,6 +28,7 @@ fi
 [ "$EBS_DEVICE" = "" ] && EBS_DEVICE="/dev/xvdh"
 [ "$HOST_INSTANCE_ID" = "" ] && HOST_INSTANCE_ID=`ec2-describe-instances --region $REGION -F tag:role=host|grep ^INSTANCE|cut -f2`
 [ "$ZONE" = "" ] && ZONE=`ec2-describe-instances -F instance-id=i-91127c99 --region $REGION |cut -f12|grep -v "^$"`
+[ "$INSTANCE_TYPE" = "" ] && INSTANCE_TYPE=t1.micro
 
 EXTANT_IMAGE=`ec2-describe-images -o self --filter name="$NAME" --filter architecture=x86_64 --region $REGION --hide-tags|grep "^IMAGE"|cut -f2`
 if [ "$EXTANT_IMAGE" ]; then
@@ -96,7 +99,7 @@ AMI_ID=`ec2-register -n $NAME --snapshot $SNAPSHOT_ID --kernel $KERNEL_ID --regi
 
 #now make an instance running that.
 #TODO: should be able to specify security group here.
-INSTANCE_ID=`ec2-run-instances $AMI_ID  -t t1.micro --region ${REGION}|cut -f2`
+INSTANCE_ID=`ec2-run-instances $AMI_ID  -t ${INSTANCE_TYPE} --region ${REGION}|grep ^INSTANCE|cut -f2`
 
 [ "$INSTANCE_ID" = "" ] && fail "Couldn't start an instance with AMI ID $AMI_ID ."
 
